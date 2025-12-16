@@ -58,10 +58,10 @@ function Get-PipConfigValues {
 
     foreach ($line in $output) {
         if ($line -match '^global\.find-links=(.+)$') {
-            $findLinks = $Matches[1].Trim('"')
+            $findLinks = $Matches[1].Trim('"', "'")
         }
         elseif ($line -match '^global\.no-index=(.+)$') {
-            $noIndex = $Matches[1].Trim('"')
+            $noIndex = $Matches[1].Trim('"', "'")
         }
     }
 
