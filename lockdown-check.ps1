@@ -44,9 +44,8 @@ $eventLogConfig = @{
 function Convert-ToFileUri {
     param([string]$Path)
 
-    $normalized = $Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-    $normalized = $normalized -replace '\\', '/'
-    return "file:///$normalized"
+    $fullPath = [System.IO.Path]::GetFullPath($Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar, '/'))
+    return ([System.Uri]::new($fullPath)).AbsoluteUri
 }
 
 function Get-PipConfigValues {

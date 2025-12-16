@@ -5,7 +5,15 @@ function Test-EventLogSource {
         [switch]$SkipOnError
     )
 
-    if ([System.Diagnostics.EventLog]::SourceExists($EventSource)) { return $true }
+    try {
+        if ([System.Diagnostics.EventLog]::SourceExists($EventSource)) { return $true }
+    }
+    catch {
+        if (-not $SkipOnError) { throw }
+
+        Write-Warning "Unable to query event source '$EventSource'. Skipping event log entry."
+        return $false
+    }
 
     try {
         New-EventLog -LogName $LogName -Source $EventSource -ErrorAction Stop
