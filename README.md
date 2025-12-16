@@ -266,6 +266,34 @@ your Windows 11 machine without Splunk:
   }
   ```
 
+- Successful pip lockdown validation events from `lockdown-check.ps1` (shows
+  enforcement status for the requested interpreter):
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'PipClientLockdownCheck'
+        Id           = 1000
+        StartTime    = (Get-Date).AddHours(-24)
+        EndTime      = Get-Date
+    } | Format-List -Property TimeCreated, Id, ProviderName, Message
+  }
+  ```
+
+- Lockdown validation failures from `lockdown-check.ps1` (missing find-links or
+  no-index settings):
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'PipClientLockdownCheck'
+        Id           = 1001
+        StartTime    = (Get-Date).AddHours(-24)
+        EndTime      = Get-Date
+    } | Format-List -Property TimeCreated, Id, ProviderName, Message
+  }
+  ```
+
 - Download summary events scoped to the past 2 hours on a specific host:
   ```powershell
   & {
