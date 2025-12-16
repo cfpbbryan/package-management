@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\GitPullHere]
+@="Git Pull Here"
+"Icon"="C:\\Program Files\\Git\\git-bash.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\GitPullHere\command]
+@="\"C:\\Program Files\\Git\\git-bash.exe\" -lc \"git pull\""
