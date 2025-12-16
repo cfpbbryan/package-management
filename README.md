@@ -1,5 +1,11 @@
 # Package Management Utilities
 
+These are the helper scripts that we're currently using. Only basic info is
+provided here.
+
+Do not start here. The full documentation is in MS Word files in SharePoint.
+Ask someone from Office of Research or Bryan Harris where that's at.
+
 ## Script and file reference
 
 | Script / File Name              | What it does                                                          |
