@@ -80,25 +80,47 @@ function Get-ArtifactPlatformCoverage {
     $coverage = @{
         Windows = $false
         Linux   = $false
+        WheelCoverage = @{
+            Windows = $false
+            Linux   = $false
+        }
+        HasSourceArchive = $false
     }
 
     foreach ($artifact in $artifacts) {
-        if ($artifact.Extension -ne ".whl") { continue }
-
-        $platformTag = ($artifact.BaseName -split '-')[ -1 ].ToLower()
-        if ($platformTag -eq "any") {
+        if ($artifact.Name -match '\.(tar\.gz|zip)$') {
+            $coverage.HasSourceArchive = $true
             $coverage.Windows = $true
             $coverage.Linux = $true
             continue
         }
 
-        if ($platformTag -match "win_amd64") { $coverage.Windows = $true }
-        if ($platformTag -match "manylinux|linux") { $coverage.Linux = $true }
+        if ($artifact.Extension -ne ".whl") { continue }
+
+        $platformTag = ($artifact.BaseName -split '-')[ -1 ].ToLower()
+        if ($platformTag -eq "any") {
+            $coverage.WheelCoverage.Windows = $true
+            $coverage.WheelCoverage.Linux = $true
+            $coverage.Windows = $true
+            $coverage.Linux = $true
+            continue
+        }
+
+        if ($platformTag -match "win_amd64") {
+            $coverage.WheelCoverage.Windows = $true
+            $coverage.Windows = $true
+        }
+        if ($platformTag -match "manylinux|linux") {
+            $coverage.WheelCoverage.Linux = $true
+            $coverage.Linux = $true
+        }
     }
 
     return @{
         Windows   = $coverage.Windows
         Linux     = $coverage.Linux
+        WheelCoverage = $coverage.WheelCoverage
+        HasSourceArchive = $coverage.HasSourceArchive
         Artifacts = $artifacts
     }
 }
@@ -219,12 +241,18 @@ function Invoke-DownloadPhase {
         $hasDownloadError = ($result.WindowsExitCode -ne 0 -or $result.LinuxExitCode -ne 0 -or $windowsOutput -match "ERROR|Could not find|No matching distribution" -or $linuxOutput -match "ERROR|Could not find|No matching distribution")
         $artifactExistsWindows = $false
         $artifactExistsLinux = $false
+        $coveredBySourceArchive = $false
         $packageInfo = Get-PackageNameAndVersion $job.Package.Requirement
 
         if ($packageInfo) {
             $artifactCoverage = Get-ArtifactPlatformCoverage -Name $packageInfo.Name -Version $packageInfo.Version -Directory $outputDir
             $artifactExistsWindows = $artifactCoverage.Windows
             $artifactExistsLinux = $artifactCoverage.Linux
+            if ($artifactCoverage) {
+                $wheelCoverage = $artifactCoverage.WheelCoverage
+                $hasFullWheelCoverage = $wheelCoverage -and $wheelCoverage.Windows -and $wheelCoverage.Linux
+                $coveredBySourceArchive = $artifactCoverage.HasSourceArchive -and -not $hasFullWheelCoverage
+            }
         }
 
         $missingPlatforms = @()
@@ -232,6 +260,10 @@ function Invoke-DownloadPhase {
         if (-not $artifactExistsLinux) { $missingPlatforms += "Linux" }
         $artifactExistsForAllPlatforms = $missingPlatforms.Count -eq 0
         $shouldFail = $hasDownloadError -or (-not $artifactExistsForAllPlatforms)
+
+        if ($artifactExistsForAllPlatforms -and $coveredBySourceArchive -and ($PhaseLabel -like "Phase 2*")) {
+            Write-Host "Phase 2 satisfied via source distribution: $(Format-PackageEntry $job.Package)" -ForegroundColor Cyan
+        }
 
         if ($shouldFail) {
             if ($hasDownloadError -and $artifactExistsForAllPlatforms) {
@@ -347,38 +379,22 @@ if ($failedPackages.Count -gt 0) {
         param($package)
         ${function:Get-PySelector} = $using:pySelectorFunc
         ${function:Get-PipPythonVersion} = $using:pipPythonVersionFunc
-        ${function:Get-PipAbiTag} = $using:pipAbiTagFunc
 
         $pySelector = Get-PySelector $package.PythonVersion
         $pipPythonVersion = Get-PipPythonVersion $package.PythonVersion
-        $pipAbiTag = Get-PipAbiTag $package.PythonVersion
 
-        $windowsResult = & py $pySelector -m pip download $package.Requirement `
+        $downloadResult = & py $pySelector -m pip download $package.Requirement `
             -d $using:outputDir `
-            --platform win_amd64 `
             --python-version $pipPythonVersion `
-            --implementation cp `
-            --abi $pipAbiTag `
             --exists-action $using:existsAction 2>&1
-        $windowsExitCode = $LASTEXITCODE
-
-        $linuxResult = & py $pySelector -m pip download $package.Requirement `
-            -d $using:outputDir `
-            --platform manylinux2014_x86_64 `
-            --python-version $pipPythonVersion `
-            --implementation cp `
-            --abi $pipAbiTag `
-            --exists-action $using:existsAction 2>&1
-        $linuxExitCode = $LASTEXITCODE
-
-        $combinedExitCode = if ($windowsExitCode -eq 0 -and $linuxExitCode -eq 0) { 0 } else { 1 }
+        $combinedExitCode = $LASTEXITCODE
         return @{
             ExitCode        = $combinedExitCode
-            WindowsExitCode = $windowsExitCode
-            LinuxExitCode   = $linuxExitCode
-            WindowsOutput   = $windowsResult
-            LinuxOutput     = $linuxResult
-            Output          = "$windowsResult`n--- Linux ---`n$linuxResult"
+            WindowsExitCode = $combinedExitCode
+            LinuxExitCode   = $combinedExitCode
+            WindowsOutput   = $downloadResult
+            LinuxOutput     = $downloadResult
+            Output          = $downloadResult
         }
     }
 
