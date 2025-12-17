@@ -105,15 +105,20 @@ try {
     if ($issues.Count -eq 0) {
         $successMessage = "pip.ini is locked down (find-links=$($config.FindLinks); no-index=$($config.NoIndex))."
         Write-OutcomeEvent -Message $successMessage -Success $true
+        $global:LASTEXITCODE = 0
     }
     else {
         $failureMessage = "pip.ini lockdown validation failed; issues: $(($issues -join ' ')) Output: $($config.RawOutput)"
         Write-OutcomeEvent -Message $failureMessage -Success $false
-        throw $failureMessage
+        Write-Error -Message $failureMessage
+        $global:LASTEXITCODE = 1
+        exit $global:LASTEXITCODE
     }
 }
 catch {
     $errorMessage = "Lockdown check encountered an error: $($_.Exception.Message)"
     Write-OutcomeEvent -Message $errorMessage -Success $false
-    throw
+    Write-Error -Message $errorMessage
+    $global:LASTEXITCODE = 1
+    exit $global:LASTEXITCODE
 }
