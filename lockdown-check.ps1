@@ -74,6 +74,21 @@ function Get-PipConfigValues {
     }
 }
 
+function Write-ConsoleLog {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('INFO', 'WARN', 'ERROR')][string]$Level = 'INFO'
+    )
+
+    $color = switch ($Level) {
+        'WARN' { 'Yellow' }
+        'ERROR' { 'Red' }
+        default { 'Gray' }
+    }
+
+    Write-Host "[$Level] $Message" -ForegroundColor $color
+}
+
 function Write-OutcomeEvent {
     param(
         [string]$Message,
@@ -81,7 +96,11 @@ function Write-OutcomeEvent {
     )
 
     $level = if ($Success) { 'INFO' } else { 'ERROR' }
-    Write-Log -Message $Message -Level $level -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
+
+    Write-ConsoleLog $Message $level
+
+    $entryType = if ($Success) { 'Information' } else { 'Error' }
+    Write-EventLogRecord @eventLogConfig -Message $Message -EntryType $entryType -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
 }
 
 try {
@@ -89,6 +108,8 @@ try {
     $config = Get-PipConfigValues -PythonLauncher $PythonLauncher
 
     $issues = @()
+
+    Write-ConsoleLog "Validating pip.ini lockdown configuration" 'INFO'
 
     if (-not $config.FindLinks) {
         $issues += 'global.find-links is missing from pip config.'
@@ -110,9 +131,14 @@ try {
         $global:LASTEXITCODE = 0
     }
     else {
-        $failureMessage = "pip.ini lockdown validation failed; issues: $(($issues -join ' ')) Output: $($config.RawOutput)"
-        Write-OutcomeEvent -Message $failureMessage -Success $false
-        Write-Error -Message $failureMessage
+        foreach ($issue in $issues) {
+            Write-ConsoleLog $issue 'WARN'
+        }
+
+        $summary = "pip.ini lockdown validation FAILED with $($issues.Count) issue(s)."
+        Write-OutcomeEvent -Message $summary -Success $false
+        Write-EventLogRecord @eventLogConfig -Message "$(($issues -join ' ')) Raw pip config: $($config.RawOutput)" -EntryType 'Error'
+        Write-ConsoleLog $summary 'ERROR'
         $global:LASTEXITCODE = 1
         exit $global:LASTEXITCODE
     }
@@ -120,7 +146,7 @@ try {
 catch {
     $errorMessage = "Lockdown check encountered an error: $($_.Exception.Message)"
     Write-OutcomeEvent -Message $errorMessage -Success $false
-    Write-Error -Message $errorMessage
+    Write-ConsoleLog $errorMessage 'ERROR'
     $global:LASTEXITCODE = 1
     exit $global:LASTEXITCODE
 }
