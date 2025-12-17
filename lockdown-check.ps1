@@ -3,29 +3,20 @@
     Validates that pip is configured for offline lockdown.
 
 .DESCRIPTION
-    Runs `py -m pip config list` and confirms that pip is locked down by
-    checking for the `global.find-links` and `global.no-index` values that
-    `pip-client-lockdown.ps1` sets. The contents of the mirror itself are not
+    Confirms that pip is locked down by verifying the presence of pip.ini at
+    C:\ProgramData\pip and the lockdown lines written by
+    `pip-client-lockdown.ps1`. The contents of the mirror itself are not
     inspected—only the presence of the lockdown configuration in pip.ini. The
     script writes a Windows event log entry for both success and failure so
     administrators can audit compliance.
 
-.PARAMETER PythonLauncher
-    Python launcher executable to invoke. Defaults to `py`.
-
 .EXAMPLE
-    # Validate pip lockdown using the default Python launcher
+    # Validate pip lockdown
     .\lockdown-check.ps1
-
-.EXAMPLE
-    # Validate pip lockdown using a specific Python launcher
-    .\lockdown-check.ps1 -PythonLauncher "C:\\Python311\\python.exe"
 #>
 
 [CmdletBinding()]
-param(
-    [Parameter(Mandatory = $false)][string]$PythonLauncher = "py"
-)
+param()
 
 $ErrorActionPreference = 'Stop'
 
@@ -48,28 +39,19 @@ function Convert-ToFileUri {
     return ([System.Uri]::new($fullPath)).AbsoluteUri
 }
 
-function Get-PipConfigValues {
-    param([string]$PythonLauncher)
+function Write-ConsoleLog {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('INFO', 'WARN', 'ERROR')][string]$Level = 'INFO'
+    )
 
-    $output = & $PythonLauncher -m pip config list
-
-    $findLinks = $null
-    $noIndex = $null
-
-    foreach ($line in $output) {
-        if ($line -match '^global\.find-links=(.+)$') {
-            $findLinks = $Matches[1].Trim('"', "'")
-        }
-        elseif ($line -match '^global\.no-index=(.+)$') {
-            $noIndex = $Matches[1].Trim('"', "'")
-        }
+    $color = switch ($Level) {
+        'WARN' { 'Yellow' }
+        'ERROR' { 'Red' }
+        default { 'Gray' }
     }
 
-    return [PSCustomObject]@{
-        FindLinks = $findLinks
-        NoIndex   = $noIndex
-        RawOutput = $output -join "`n"
-    }
+    Write-Host "[$Level] $Message" -ForegroundColor $color
 }
 
 function Write-OutcomeEvent {
@@ -79,41 +61,56 @@ function Write-OutcomeEvent {
     )
 
     $level = if ($Success) { 'INFO' } else { 'ERROR' }
-    Write-Log -Message $Message -Level $level -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
+
+    Write-Log $Message $level -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
 }
 
 try {
     $expectedFindLinks = Convert-ToFileUri -Path "C:\\admin\\pip_mirror"
-    $config = Get-PipConfigValues -PythonLauncher $PythonLauncher
+    $configPath = 'C:\\ProgramData\\pip\\pip.ini'
+    $expectedLines = @(
+        '[global]',
+        "find-links = $expectedFindLinks",
+        'no-index = true'
+    )
 
     $issues = @()
 
-    if (-not $config.FindLinks) {
-        $issues += 'global.find-links is missing from pip config.'
-    }
-    elseif ($config.FindLinks -ne $expectedFindLinks) {
-        $issues += "global.find-links is '$($config.FindLinks)', expected '$expectedFindLinks'."
-    }
+    Write-ConsoleLog "Validating pip.ini lockdown configuration at $configPath" 'INFO'
 
-    if (-not $config.NoIndex) {
-        $issues += 'global.no-index is missing from pip config.'
-    }
-    elseif ($config.NoIndex -notin @('true', 'True')) {
-        $issues += "global.no-index is '$($config.NoIndex)', expected 'true'."
-    }
-
-    if ($issues.Count -eq 0) {
-        $successMessage = "pip.ini is locked down (find-links=$($config.FindLinks); no-index=$($config.NoIndex))."
-        Write-OutcomeEvent -Message $successMessage -Success $true
+    if (-not (Test-Path -Path $configPath -PathType Leaf)) {
+        $issues += [PSCustomObject]@{ Issue = 'MissingFile'; Detail = $configPath }
+        Write-ConsoleLog "Missing: $configPath" 'ERROR'
     }
     else {
-        $failureMessage = "pip.ini lockdown validation failed; issues: $(($issues -join ' ')) Output: $($config.RawOutput)"
+        $actualLines = Get-Content -Path $configPath -ErrorAction Stop
+
+        foreach ($expectedLine in $expectedLines) {
+            if (-not ($actualLines -contains $expectedLine)) {
+                $issues += [PSCustomObject]@{ Issue = 'MissingLine'; Detail = $expectedLine }
+                Write-ConsoleLog "Missing line: $expectedLine" 'ERROR'
+            }
+        }
+    }
+
+    $summary = "pip.ini lockdown validation complete for $configPath. Missing items: $($issues.Count)."
+    Write-ConsoleLog $summary 'INFO'
+
+    if ($issues.Count -eq 0) {
+        Write-OutcomeEvent -Message 'pip.ini lockdown validation succeeded with no discrepancies.' -Success $true
+        $global:LASTEXITCODE = 0
+    }
+    else {
+        $failureMessage = "pip.ini lockdown validation FAILED with $($issues.Count) issue(s)."
         Write-OutcomeEvent -Message $failureMessage -Success $false
-        throw $failureMessage
+        $global:LASTEXITCODE = 1
+        exit $global:LASTEXITCODE
     }
 }
 catch {
     $errorMessage = "Lockdown check encountered an error: $($_.Exception.Message)"
     Write-OutcomeEvent -Message $errorMessage -Success $false
-    throw
+    Write-ConsoleLog $errorMessage 'ERROR'
+    $global:LASTEXITCODE = 1
+    exit $global:LASTEXITCODE
 }
