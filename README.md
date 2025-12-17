@@ -68,24 +68,16 @@ Legacy and experimental scripts live under the `archive/` directory; see `archiv
 ## Splunk search examples
 Use these sample SPL queries to locate events written by
 `integrity-check.ps1` on a specific Windows host (replace
-`my-mirror-host` with your hostname):
+`my-mirror-host` with your hostname).
 
-- Recent informational events emitted by the script’s Windows event log source:
+- Recent informational events emitted by the script’s Windows event log source,
+  including a zero-results branch you can use to drive an email alert when the
+  scheduled task fails to run:
   ```spl
   index=windows host="my-mirror-host" source="WinEventLog:Application"
-    SourceName="MirrorIntegrityCheck" EventCode=1000
-  ```
-
-- Successful pip lockdown validation events from `lockdown-check.ps1`:
-  ```spl
-  index=windows host="my-mirror-host" source="WinEventLog:Application"
-    SourceName="PipClientLockdownCheck" EventCode=1000 earliest=-24h latest=now
-  ```
-
-- Pip lockdown validation failures (missing find-links/no-index settings):
-  ```spl
-  index=windows host="my-mirror-host" source="WinEventLog:Application"
-    SourceName="PipClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
+    SourceName="MirrorIntegrityCheck" earliest=-24h latest=now
+  | stats count BY EventCode, Message
+  | appendpipe [| stats count | where count=0 | eval Message="No MirrorIntegrityCheck events in the past 24h — verify the scheduled task and notify via email."]
   ```
 
 - Errors from mirror verification runs (helps highlight hash mismatches or
@@ -102,6 +94,18 @@ Use these sample SPL queries to locate events written by
     SourceName="MirrorIntegrityCheck"
     (EventCode=1000 OR EventCode=1001)
   | stats count BY EventCode, Message
+  ```
+
+- Successful pip lockdown validation events from `lockdown-check.ps1`:
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="PipClientLockdownCheck" EventCode=1000 earliest=-24h latest=now
+  ```
+
+- Pip lockdown validation failures (missing find-links/no-index settings):
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="PipClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
   ```
 
 - Cleanup summary events emitted by `pip-cleanup-versions.ps1` when wheel or
@@ -154,8 +158,8 @@ Use these sample SPL queries to locate events written by
   ```
 
 ## Local Windows event log search examples
-Use PowerShell to retrieve the same `integrity-check.ps1` events from
-your Windows 11 machine without Splunk:
+Use PowerShell to retrieve the same `integrity-check.ps1` and
+`lockdown-check.ps1` events from your Windows 11 machine without Splunk.
 
 - Recent informational events from the script source (mirrors the first SPL
   example):
@@ -192,6 +196,34 @@ your Windows 11 machine without Splunk:
         Id        = @(1000,1001)
         StartTime = (Get-Date).AddDays(-1)
     } | Group-Object Id | Select-Object Count, Name
+  }
+  ```
+
+- Successful pip lockdown validation events from `lockdown-check.ps1` (shows
+  enforcement status for the requested interpreter):
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'PipClientLockdownCheck'
+        Id           = 1000
+        StartTime    = (Get-Date).AddHours(-24)
+        EndTime      = Get-Date
+    } | Format-List -Property TimeCreated, Id, ProviderName, Message
+  }
+  ```
+
+- Lockdown validation failures from `lockdown-check.ps1` (missing find-links or
+  no-index settings):
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'PipClientLockdownCheck'
+        Id           = 1001
+        StartTime    = (Get-Date).AddHours(-24)
+        EndTime      = Get-Date
+    } | Format-List -Property TimeCreated, Id, ProviderName, Message
   }
   ```
 
@@ -260,34 +292,6 @@ your Windows 11 machine without Splunk:
         LogName      = 'Application'
         ProviderName = 'PipClientLockdown'
         Id           = 1000
-        StartTime    = (Get-Date).AddHours(-24)
-        EndTime      = Get-Date
-    } | Format-List -Property TimeCreated, Id, ProviderName, Message
-  }
-  ```
-
-- Successful pip lockdown validation events from `lockdown-check.ps1` (shows
-  enforcement status for the requested interpreter):
-  ```powershell
-  & {
-    Get-WinEvent -FilterHashtable @{
-        LogName      = 'Application'
-        ProviderName = 'PipClientLockdownCheck'
-        Id           = 1000
-        StartTime    = (Get-Date).AddHours(-24)
-        EndTime      = Get-Date
-    } | Format-List -Property TimeCreated, Id, ProviderName, Message
-  }
-  ```
-
-- Lockdown validation failures from `lockdown-check.ps1` (missing find-links or
-  no-index settings):
-  ```powershell
-  & {
-    Get-WinEvent -FilterHashtable @{
-        LogName      = 'Application'
-        ProviderName = 'PipClientLockdownCheck'
-        Id           = 1001
         StartTime    = (Get-Date).AddHours(-24)
         EndTime      = Get-Date
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
