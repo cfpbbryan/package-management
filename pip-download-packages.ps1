@@ -34,6 +34,12 @@ function Get-PipPythonVersion {
     $version.Replace('.', '')
 }
 
+function Get-PipAbiTag {
+    param([string]$version)
+    $pipPythonVersion = Get-PipPythonVersion $version
+    "cp$pipPythonVersion"
+}
+
 function Normalize-PackageName {
     param([string]$name)
     $name.ToLower() -replace '[-_.]+', '-'
@@ -286,6 +292,7 @@ $maxJobs = 15
 
 $pySelectorFunc = ${function:Get-PySelector}
 $pipPythonVersionFunc = ${function:Get-PipPythonVersion}
+$pipAbiTagFunc = ${function:Get-PipAbiTag}
 $existsAction = 's'
 
 Write-Host "Using pip --exists-action $existsAction (skip existing files) for downloads to $outputDir for Windows and Linux targets."
@@ -294,14 +301,18 @@ $downloadJob = {
     param($package)
     ${function:Get-PySelector} = $using:pySelectorFunc
     ${function:Get-PipPythonVersion} = $using:pipPythonVersionFunc
+    ${function:Get-PipAbiTag} = $using:pipAbiTagFunc
 
     $pySelector = Get-PySelector $package.PythonVersion
     $pipPythonVersion = Get-PipPythonVersion $package.PythonVersion
+    $pipAbiTag = Get-PipAbiTag $package.PythonVersion
 
     $windowsResult = & py $pySelector -m pip download $package.Requirement `
         -d $using:outputDir `
         --platform win_amd64 `
         --python-version $pipPythonVersion `
+        --implementation cp `
+        --abi $pipAbiTag `
         --only-binary=:all: `
         --exists-action $using:existsAction 2>&1
     $windowsExitCode = $LASTEXITCODE
@@ -310,6 +321,8 @@ $downloadJob = {
         -d $using:outputDir `
         --platform manylinux2014_x86_64 `
         --python-version $pipPythonVersion `
+        --implementation cp `
+        --abi $pipAbiTag `
         --only-binary=:all: `
         --exists-action $using:existsAction 2>&1
     $linuxExitCode = $LASTEXITCODE
@@ -334,14 +347,18 @@ if ($failedPackages.Count -gt 0) {
         param($package)
         ${function:Get-PySelector} = $using:pySelectorFunc
         ${function:Get-PipPythonVersion} = $using:pipPythonVersionFunc
+        ${function:Get-PipAbiTag} = $using:pipAbiTagFunc
 
         $pySelector = Get-PySelector $package.PythonVersion
         $pipPythonVersion = Get-PipPythonVersion $package.PythonVersion
+        $pipAbiTag = Get-PipAbiTag $package.PythonVersion
 
         $windowsResult = & py $pySelector -m pip download $package.Requirement `
             -d $using:outputDir `
             --platform win_amd64 `
             --python-version $pipPythonVersion `
+            --implementation cp `
+            --abi $pipAbiTag `
             --exists-action $using:existsAction 2>&1
         $windowsExitCode = $LASTEXITCODE
 
@@ -349,6 +366,8 @@ if ($failedPackages.Count -gt 0) {
             -d $using:outputDir `
             --platform manylinux2014_x86_64 `
             --python-version $pipPythonVersion `
+            --implementation cp `
+            --abi $pipAbiTag `
             --exists-action $using:existsAction 2>&1
         $linuxExitCode = $LASTEXITCODE
 
