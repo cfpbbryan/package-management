@@ -108,6 +108,22 @@ Use these sample SPL queries to locate events written by
     SourceName="PipClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
   ```
 
+- Alert when the `PipClientLockdownCheck` source shows no successful runs in
+  the past 24 hours (returns a zero-row result you can wire to an email
+  alert):
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="PipClientLockdownCheck"
+    earliest=-24h latest=now
+  | stats
+      count as total_events
+      sum(eval(EventCode=1000)) as success_events
+      sum(eval(EventCode=1001)) as error_events
+  | eval
+      ran_ok = if(total_events >= 1 AND success_events >= 1, 1, 0)
+  | where ran_ok=0
+  ```
+
 - Cleanup summary events emitted by `pip-cleanup-versions.ps1` when wheel or
   source distribution files are removed:
   ```spl
