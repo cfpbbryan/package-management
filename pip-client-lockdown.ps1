@@ -1,9 +1,3 @@
-$logName = "Application"
-$eventSource = "PipClientLockdown"
-$informationEventId = 1000
-
-Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
-
 [CmdletBinding()]
 param(
     [ArgumentCompleter({
@@ -34,6 +28,12 @@ param(
         })]
     [string]$MirrorPath = "C:\admin\pip_mirror"
 )
+
+$logName = "Application"
+$eventSource = "PipClientLockdown"
+$informationEventId = 1000
+
+Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
 
 $eventLogConfig = @{
     LogName                  = $logName
