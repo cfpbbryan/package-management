@@ -6,6 +6,32 @@ Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
 
 [CmdletBinding()]
 param(
+    [ArgumentCompleter({
+            param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+            $basePath = if ([string]::IsNullOrWhiteSpace($wordToComplete)) {
+                '.'
+            }
+            elseif (Test-Path -LiteralPath $wordToComplete -PathType Container) {
+                $wordToComplete
+            }
+            else {
+                $parent = Split-Path -Path $wordToComplete -Parent
+                if ([string]::IsNullOrWhiteSpace($parent)) { '.' } else { $parent }
+            }
+
+            $leaf = if ([string]::IsNullOrWhiteSpace($wordToComplete)) { '' } else { Split-Path -Path $wordToComplete -Leaf }
+
+            Get-ChildItem -Directory -Path $basePath -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "$leaf*" } |
+                ForEach-Object {
+                    [System.Management.Automation.CompletionResult]::new(
+                        $_.FullName,
+                        $_.Name,
+                        'ParameterValue',
+                        $_.FullName)
+                }
+        })]
     [string]$MirrorPath = "C:\admin\pip_mirror"
 )
 
@@ -15,6 +41,28 @@ $eventLogConfig = @{
     EventIds                 = @{ Information = $informationEventId }
     SkipSourceCreationErrors = $true
 }
+
+function Register-PipClientLockdownCompleters {
+    param([string]$ScriptPath = $PSCommandPath)
+
+    $commandInfo = Get-Command -Name $ScriptPath -CommandType ExternalScript -ErrorAction SilentlyContinue
+    if (-not $commandInfo) { return }
+
+    $parameters = $commandInfo.Parameters
+    if (-not $parameters.ContainsKey('MirrorPath')) { return }
+
+    $completer = $parameters['MirrorPath'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ArgumentCompleterAttribute] } |
+        Select-Object -First 1
+
+    if (-not $completer) { return }
+
+    $scriptName = Split-Path -Path $ScriptPath -Leaf
+    Register-ArgumentCompleter -CommandName $scriptName -ParameterName 'MirrorPath' -ScriptBlock $completer.ScriptBlock
+    Register-ArgumentCompleter -CommandName $ScriptPath -ParameterName 'MirrorPath' -ScriptBlock $completer.ScriptBlock
+}
+
+Register-PipClientLockdownCompleters
 
 function Write-SummaryEvent {
     param(
