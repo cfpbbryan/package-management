@@ -1,3 +1,34 @@
+[CmdletBinding()]
+param(
+    [ArgumentCompleter({
+            param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+            $basePath = if ([string]::IsNullOrWhiteSpace($wordToComplete)) {
+                '.'
+            }
+            elseif (Test-Path -LiteralPath $wordToComplete -PathType Container) {
+                $wordToComplete
+            }
+            else {
+                $parent = Split-Path -Path $wordToComplete -Parent
+                if ([string]::IsNullOrWhiteSpace($parent)) { '.' } else { $parent }
+            }
+
+            $leaf = if ([string]::IsNullOrWhiteSpace($wordToComplete)) { '' } else { Split-Path -Path $wordToComplete -Leaf }
+
+            Get-ChildItem -Directory -Path $basePath -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "$leaf*" } |
+                ForEach-Object {
+                    [System.Management.Automation.CompletionResult]::new(
+                        $_.FullName,
+                        $_.Name,
+                        'ParameterValue',
+                        $_.FullName)
+                }
+        })]
+    [string]$MirrorPath = "C:\admin\pip_mirror"
+)
+
 $logName = "Application"
 $eventSource = "PipClientLockdown"
 $informationEventId = 1000
@@ -10,6 +41,38 @@ $eventLogConfig = @{
     EventIds                 = @{ Information = $informationEventId }
     SkipSourceCreationErrors = $true
 }
+
+function Register-PipClientLockdownCompleters {
+    param([string]$ScriptPath = $PSCommandPath)
+
+    $commandInfo = Get-Command -Name $ScriptPath -CommandType ExternalScript -ErrorAction SilentlyContinue
+    if (-not $commandInfo) { return }
+
+    $parameters = $commandInfo.Parameters
+    if (-not $parameters -or -not $parameters.ContainsKey('MirrorPath')) { return }
+
+    $completer = $parameters['MirrorPath'].Attributes |
+        Where-Object { $_ -is [System.Management.Automation.ArgumentCompleterAttribute] } |
+        Select-Object -First 1
+
+    if (-not $completer) { return }
+
+    $scriptName = Split-Path -Path $ScriptPath -Leaf
+    $commandNames = @(
+        $scriptName
+        ".\\$scriptName"
+        "./$scriptName"
+        $ScriptPath
+        $commandInfo.Source
+        $commandInfo.Definition
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    if (-not $commandNames) { return }
+
+    Register-ArgumentCompleter -CommandName $commandNames -ParameterName 'MirrorPath' -ScriptBlock $completer.ScriptBlock
+}
+
+Register-PipClientLockdownCompleters
 
 function Write-SummaryEvent {
     param(
@@ -28,15 +91,18 @@ function Write-SummaryEvent {
     Write-EventLogRecord @eventLogConfig -Message $summary -EntryType Information
 }
 
-$mirrorPath = "C:\admin\pip_mirror"
+$mirrorPath = [System.IO.Path]::GetFullPath($MirrorPath)
 $configDirectory = "C:\ProgramData\pip"
 $configPath = "$configDirectory\pip.ini"
 
-$originalLocation = Get-Location
+$mirrorPathExists = Test-Path $mirrorPath
+if (-not $mirrorPathExists) {
+    $errorMessage = "Mirror path '$mirrorPath' does not exist. Provide an existing path with -MirrorPath."
+    Write-Error $errorMessage
+    throw $errorMessage
+}
 
 try {
-    Set-Location $mirrorPath
-
     $createdPipDirectory = $false
     # Ensure pip folder exists in ProgramData
     if (-not (Test-Path $configDirectory)) {
@@ -50,9 +116,10 @@ try {
         $restoredPipIni = $true
     }
 
+    $mirrorUri = [System.Uri]::new($mirrorPath)
     $pipConfig = @"
 [global]
-find-links = file:///C:/admin/pip_mirror
+find-links = $($mirrorUri.AbsoluteUri)
 no-index = true
 "@
     [System.IO.File]::WriteAllText($configPath, $pipConfig)
@@ -65,6 +132,6 @@ no-index = true
 
     Write-SummaryEvent -CreatedPipDirectory $createdPipDirectory -RestoredPipIni $restoredPipIni -ConfigPath $configPath -MirrorPath $mirrorPath
 }
-finally {
-    Set-Location $originalLocation
+catch {
+    throw
 }
