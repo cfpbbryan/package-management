@@ -57,6 +57,12 @@ no-index = true
 "@
     [System.IO.File]::WriteAllText($configPath, $pipConfig)
 
+    [System.Environment]::SetEnvironmentVariable(
+        "PIP_NO_INDEX",
+        "1",
+        "Machine"
+    )
+
     Write-SummaryEvent -CreatedPipDirectory $createdPipDirectory -RestoredPipIni $restoredPipIni -ConfigPath $configPath -MirrorPath $mirrorPath
 }
 finally {
