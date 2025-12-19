@@ -29,19 +29,6 @@ param(
     [string]$MirrorPath = "C:\admin\pip_mirror"
 )
 
-$logName = "Application"
-$eventSource = "PipClientLockdown"
-$informationEventId = 1000
-
-Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
-
-$eventLogConfig = @{
-    LogName                  = $logName
-    EventSource              = $eventSource
-    EventIds                 = @{ Information = $informationEventId }
-    SkipSourceCreationErrors = $true
-}
-
 function Register-PipClientLockdownCompleters {
     param([string]$ScriptPath = $PSCommandPath)
 
@@ -73,23 +60,6 @@ function Register-PipClientLockdownCompleters {
 }
 
 Register-PipClientLockdownCompleters
-
-function Write-SummaryEvent {
-    param(
-        [bool]$CreatedPipDirectory,
-        [bool]$RestoredPipIni,
-        [string]$ConfigPath,
-        [string]$MirrorPath
-    )
-
-    if (-not (Test-EventLogSource -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -SkipOnError:$eventLogConfig.SkipSourceCreationErrors)) { return }
-
-    $directoryStatus = if ($CreatedPipDirectory) { "created pip config directory" } else { "pip config directory already existed" }
-    $pipIniStatus = if ($RestoredPipIni) { "restored existing pip.ini before writing new configuration" } else { "no pip.ini.disabled file to restore" }
-    $summary = "pip-client-lockdown.ps1 locked pip to $MirrorPath; $directoryStatus; $pipIniStatus; wrote $ConfigPath with find-links and no-index."
-
-    Write-EventLogRecord @eventLogConfig -Message $summary -EntryType Information
-}
 
 $mirrorPath = [System.IO.Path]::GetFullPath($MirrorPath)
 $configDirectory = "C:\ProgramData\pip"
@@ -130,7 +100,6 @@ no-index = true
         "Machine"
     )
 
-    Write-SummaryEvent -CreatedPipDirectory $createdPipDirectory -RestoredPipIni $restoredPipIni -ConfigPath $configPath -MirrorPath $mirrorPath
 }
 catch {
     throw
