@@ -12,7 +12,7 @@ function Exit-WithCleanup {
     if ($message) {
         Write-FailureEvent -Message $message
     } else {
-        Write-FailureEvent -Message "pip-download-packages.ps1 failed without a specific error message."
+        Write-FailureEvent -Message "pip-download-packages.ps1 FAILED without a specific error message."
     }
     Set-Location $originalLocation
     exit 1
