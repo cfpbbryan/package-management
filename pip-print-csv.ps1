@@ -1,6 +1,23 @@
 # Load the System.IO.Compression assembly for ZipArchive
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+function Ensure-Windows {
+    $isWindowsPlatform = $IsWindows
+
+    if (-not $isWindowsPlatform -and $PSVersionTable.Platform) {
+        $isWindowsPlatform = $PSVersionTable.Platform -eq 'Win32NT'
+    }
+
+    if (-not $isWindowsPlatform -and $env:OS) {
+        $isWindowsPlatform = $env:OS -like 'Windows*'
+    }
+
+    if (-not $isWindowsPlatform) {
+        Write-Error "This script is intended to run on Windows hosts only."
+        exit 1
+    }
+}
+
 function ConvertFrom-JsonCompat {
     [CmdletBinding()]
     param(
@@ -76,6 +93,8 @@ if ($PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major
 
     Get-PropertyValue -Object $sanityBaseline -Name 'Mirror' | Out-Null
 }
+
+Ensure-Windows
 
 $pipMirrorPath = "C:\admin\pip_mirror"
 $integrityBaselinePath = Join-Path -Path $pipMirrorPath -ChildPath "integrity-baseline.json"

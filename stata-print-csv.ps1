@@ -3,10 +3,9 @@
 Emit a tab-separated report for every Stata package found in the shared ado tree.
 
 The output mirrors the column order used by the Python and R inventory scripts
-and appends blank placeholders for SSC presence and URLs alongside package name,
-version, source, reviewer, installer, summary, URL, install location, and file
-hash from the mirror's integrity-baseline.json (blank when absent). Metadata is
-derived from the shared ado tree when available.
+alongside package name, version, source, reviewer, installer, summary, URL,
+install location, and file hash from the mirror's integrity-baseline.json
+(blank when absent). Metadata is derived from the shared ado tree when available.
 ##>
 
 param(
@@ -16,20 +15,6 @@ param(
 $SummaryLineLimit = 30
 
 $HashManifestName = 'integrity-baseline.json'
-
-$logName = 'Application'
-$eventSource = 'StataPrintCsvReport'
-$informationEventId = 1000
-$errorEventId = 1001
-
-Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
-
-$eventLogConfig = @{
-    LogName                  = $logName
-    EventSource              = $eventSource
-    EventIds                 = @{ Information = $informationEventId; Error = $errorEventId }
-    SkipSourceCreationErrors = $true
-}
 
 function Ensure-Windows {
     $isWindowsPlatform = $IsWindows
@@ -116,8 +101,6 @@ function Format-Row {
         [string]$Description = "",
         [string]$Location = "",
         [string]$Url = "",
-        [string]$SscFound = "",
-        [string]$SscUrl = "",
         [string]$Hash = ""
     )
 
@@ -143,8 +126,6 @@ function Format-Row {
         $descriptionValue,
         $Url,
         $locationValue,
-        $SscFound,
-        $SscUrl,
         $Hash
     )
 
@@ -216,7 +197,6 @@ Ensure-Windows
 if (-not (Test-Path -LiteralPath $SharedAdo)) {
     $missingAdoMessage = "Shared ado directory not found at $SharedAdo. Run stata-install-baseline.do first."
     Write-Error $missingAdoMessage
-    Write-EventLogRecord @eventLogConfig -Message $missingAdoMessage -EntryType 'Error'
     exit 1
 }
 
@@ -255,13 +235,11 @@ if (Test-Path -LiteralPath $manifestPath) {
     catch {
         $manifestWarning = "Unable to load integrity baseline at $manifestPath. Hash column will be blank."
         Write-Warning $manifestWarning
-        Write-EventLogRecord @eventLogConfig -Message $manifestWarning -EntryType 'Error'
     }
 }
 else {
     $missingManifestMessage = "Integrity baseline not found at $manifestPath. Hash column will be blank."
     Write-Warning $missingManifestMessage
-    Write-EventLogRecord @eventLogConfig -Message $missingManifestMessage -EntryType 'Error'
 }
 
 $rows = New-Object System.Collections.Generic.List[string]
@@ -306,16 +284,11 @@ if ($rows.Count -gt 0) {
     }
 }
 
-$summaryMessage = "Stata package report: packages=$($rows.Count); clipboardAttempted=$clipboardAttempted; clipboardSucceeded=$copySucceeded; sharedAdo=$SharedAdo."
-
 if (-not $clipboardAttempted) {
-    Write-EventLogRecord @eventLogConfig -Message $summaryMessage -EntryType 'Error'
+    Write-Warning "No Stata packages found to copy."
 }
 else {
-    $summaryType = if ($copySucceeded) { 'Information' } else { 'Error' }
     if (-not $copySucceeded) {
         Write-Warning "Unable to copy package report to clipboard."
     }
-
-    Write-EventLogRecord @eventLogConfig -Message $summaryMessage -EntryType $summaryType
 }
