@@ -91,7 +91,8 @@ param(
                     [System.Management.Automation.CompletionResult]::new($_, $name, 'ParameterValue', $_)
                 }
         })]
-    [string]$ManifestPath
+    [string]$ManifestPath,
+    [switch]$Log
 )
 
 $ErrorActionPreference = 'Stop'
@@ -109,6 +110,18 @@ $eventLogConfig = @{
         Information = $informationEventId
         Error       = $errorEventId
     }
+}
+$eventLogEnabled = $Log.IsPresent
+
+function Write-EventLogIfEnabled {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('Information', 'Warning', 'Error')][string]$EntryType = 'Information'
+    )
+
+    if (-not $eventLogEnabled) { return }
+
+    Write-EventLogRecord @eventLogConfig -Message $Message -EntryType $EntryType
 }
 
 function Register-MirrorIntegrityCompleters {
@@ -320,13 +333,13 @@ function Verify-Baseline {
         foreach ($rel in $missing) {
             $discrepancies += [PSCustomObject]@{ RootPath = $script:MirrorRoot; Issue = 'MissingFile'; Detail = $rel }
             Write-Log "Missing: $rel" 'ERROR'
-            Write-EventLogRecord @eventLogConfig -Message "Missing file: $rel" -EntryType 'Error'
+            Write-EventLogIfEnabled -Message "Missing file: $rel" -EntryType 'Error'
         }
 
         foreach ($rel in $unexpected) {
             $discrepancies += [PSCustomObject]@{ RootPath = $script:MirrorRoot; Issue = 'UnexpectedFile'; Detail = $rel }
             Write-Log "Unexpected: $rel" 'WARN'
-            Write-EventLogRecord @eventLogConfig -Message "Unexpected file: $rel" -EntryType 'Error'
+            Write-EventLogIfEnabled -Message "Unexpected file: $rel" -EntryType 'Error'
         }
 
         $shared = $expectedFiles.Keys | Where-Object { $actualFiles.ContainsKey($_) }
@@ -336,7 +349,7 @@ function Verify-Baseline {
             if ($expectedItem.Hash -ne $actualItem.Hash) {
                 $discrepancies += [PSCustomObject]@{ RootPath = $script:MirrorRoot; Issue = 'HashMismatch'; Detail = $rel }
                 Write-Log "Hash mismatch: $rel" 'ERROR'
-                Write-EventLogRecord @eventLogConfig -Message "Hash mismatch: $rel" -EntryType 'Error'
+                Write-EventLogIfEnabled -Message "Hash mismatch: $rel" -EntryType 'Error'
             }
         }
 
@@ -346,13 +359,13 @@ function Verify-Baseline {
     if ($discrepancies.Count -gt 0) {
         $summary = "Mirror integrity verification FAILED for $script:MirrorRoot with $($discrepancies.Count) issue(s)."
         Write-Log $summary 'ERROR'
-        Write-EventLogRecord @eventLogConfig -Message $summary -EntryType 'Error'
+        Write-EventLogIfEnabled -Message $summary -EntryType 'Error'
         return @{ Success = $false; Issues = $discrepancies }
     }
 
     $successMessage = "Mirror integrity verification PASSED for $script:MirrorRoot with no discrepancies."
     Write-Log $successMessage 'INFO'
-    Write-EventLogRecord @eventLogConfig -Message $successMessage -EntryType 'Information'
+    Write-EventLogIfEnabled -Message $successMessage -EntryType 'Information'
     return @{ Success = $true; Issues = @() }
 }
 
@@ -362,7 +375,7 @@ function Run-MirrorIntegrityCheck {
     if ($Mode -eq 'baseline') {
         Build-Baseline
         $message = "Mirror integrity baseline created at $script:ManifestPath"
-        Write-EventLogRecord @eventLogConfig -Message $message -EntryType 'Information'
+        Write-EventLogIfEnabled -Message $message -EntryType 'Information'
         return 0
     }
     else {

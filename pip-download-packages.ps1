@@ -1,8 +1,3 @@
-Import-Module "$PSScriptRoot/logging-utils.psm1" -Force
-
-$eventSource = "pip-download-packages"
-$eventLogName = "Application"
-
 $originalLocation = Get-Location
 
 function Exit-WithCleanup {
@@ -116,7 +111,7 @@ function Write-DownloadSummaryEvent {
         "Missing artifacts: $MissingArtifactCount. " +
         "Please re-run integrity-check.ps1 baseline."
 
-    Write-Log -Message $summary -Level INFO -ToEventLog -LogName $eventLogName -EventSource $eventSource -EventId 1000 -SkipSourceCreationErrors
+    Write-Host $summary
 }
 
 function Write-FailureEvent {
@@ -124,7 +119,7 @@ function Write-FailureEvent {
         [Parameter(Mandatory = $true)][string]$Message
     )
 
-    Write-Log -Message $Message -Level ERROR -ToEventLog -LogName $eventLogName -EventSource $eventSource -EventId 1001 -SkipSourceCreationErrors
+    Write-Error $Message
 }
 
 function Invoke-DownloadPhase {

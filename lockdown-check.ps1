@@ -16,7 +16,9 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$Log
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -52,6 +54,8 @@ function Write-OutcomeEvent {
         [string]$Message,
         [bool]$Success
     )
+
+    if (-not $Log) { return }
 
     $level = if ($Success) { 'INFO' } else { 'ERROR' }
 
