@@ -344,13 +344,13 @@ function Verify-Baseline {
     }
 
     if ($discrepancies.Count -gt 0) {
-        $summary = "Mirror integrity verification FAILED with $($discrepancies.Count) issue(s)."
+        $summary = "Mirror integrity verification FAILED for $script:MirrorRoot with $($discrepancies.Count) issue(s)."
         Write-Log $summary 'ERROR'
         Write-EventLogRecord @eventLogConfig -Message $summary -EntryType 'Error'
         return @{ Success = $false; Issues = $discrepancies }
     }
 
-    $successMessage = 'Mirror integrity verification succeeded with no discrepancies.'
+    $successMessage = "Mirror integrity verification PASSED for $script:MirrorRoot with no discrepancies."
     Write-Log $successMessage 'INFO'
     Write-EventLogRecord @eventLogConfig -Message $successMessage -EntryType 'Information'
     return @{ Success = $true; Issues = @() }

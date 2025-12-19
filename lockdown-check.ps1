@@ -111,7 +111,7 @@ try {
     Write-ConsoleLog $summary 'INFO'
 
     if ($issues.Count -eq 0) {
-        Write-OutcomeEvent -Message 'pip.ini lockdown validation succeeded with no discrepancies.' -Success $true
+        Write-OutcomeEvent -Message 'pip.ini lockdown validation PASSED with no discrepancies.' -Success $true
         $global:LASTEXITCODE = 0
     }
     else {
