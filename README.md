@@ -47,30 +47,39 @@ Legacy and experimental scripts live under the `archive/` directory; see `archiv
 
 ## Usage examples
 
-| Scenario | Example |
-| --- | --- |
-| Create a baseline manifest for one mirror. | ```powershell
+Create a baseline manifest for one mirror.
+
+```powershell
 & {
   .\integrity-check.ps1 -Mode baseline `
     -MirrorRoot "C:\admin\pip_mirror"
 }
-``` |
-| Verify a mirror against an existing baseline. | ```powershell
+```
+
+Verify a mirror against an existing baseline.
+
+```powershell
 & {
   .\integrity-check.ps1 -Mode verify `
     -MirrorRoot "C:\admin\pip_mirror"
 }
-``` |
-| Validate that pip is locked down to the default mirror settings applied by `pip-client-lockdown.ps1`. | ```powershell
+```
+
+Validate that pip is locked down to the default mirror settings applied by `pip-client-lockdown.ps1`.
+
+```powershell
 & {
   .\lockdown-check.ps1
 }
-``` |
-| Validate pip lockdown using an explicit Python interpreter. | ```powershell
+```
+
+Validate pip lockdown using an explicit Python interpreter.
+
+```powershell
 & {
   .\lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"
 }
-``` |
+```
 
 ## Splunk search examples
 
