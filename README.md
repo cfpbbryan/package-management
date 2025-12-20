@@ -26,8 +26,6 @@ Ask someone from Office of Research or Bryan Harris where that's at.
 | stata-install-baseline.do         | Installs a baseline set of Stata packages                             |
 | stata-print-csv.ps1               | PowerShell wrapper for Stata CSV export                               |
 | anaconda-print-csv.ps1            | Exports Anaconda/conda package metadata to CSV                        |
-| controls-mapping.csv              | Control-mapping table for compliance reporting (NIST / FedRAMP style) |
-| controls-mapping.yaml             | YAML version of the same control-mapping data for automation          |
 
 Legacy and experimental scripts live under the `archive/` directory; see `archive/README.md` for details.
 
