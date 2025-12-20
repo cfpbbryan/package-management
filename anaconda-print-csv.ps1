@@ -241,9 +241,9 @@ foreach ($envFile in $environmentFiles) {
     $envData = Read-EnvironmentFile -Path $envFile.FullName
     if (-not $envData) { continue }
 
-    $envName = if ($envData.Name) { $envData.Name } else { $envFile.BaseName }
     $resolvedEnvFilePath = (Resolve-Path -LiteralPath $envFile.FullName).ProviderPath
     $relativePath = $resolvedEnvFilePath.Substring($EnvironmentRoot.Length).TrimStart('\', '/')
+    # Keep owner derived from the relative path, not the directory name.
     $owner = ($relativePath -split '[\\/]', 2)[0]
     $folderEnvName = $envFile.Directory.Name
     $fileEnvName = if ($envData.Name) { $envData.Name } else { $envFile.BaseName }
