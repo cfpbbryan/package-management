@@ -44,7 +44,7 @@ function Get-PackageArtifacts {
     $normalizedName = Normalize-PackageName $Name
     $files = Get-ChildItem -Path $Directory -File -ErrorAction SilentlyContinue
     $matching = foreach ($file in $files) {
-        if ($file.Name -notmatch '^(.+?)-([0-9][0-9A-Za-z\.]*)(?:-[^-]+)*\.(tar\.gz|zip|whl)$') { continue }
+        if ($file.Name -notmatch '^(.+?)-([0-9][0-9A-Za-z\.\+!]*)(?:-[^-]+)*\.(tar\.gz|zip|whl)$') { continue }
 
         $fileName = $matches[1]
         $fileVersion = $matches[2]
@@ -291,9 +291,10 @@ function PackageHasArtifactsInDirectory {
 }
 
 $artifactNames = Get-ChildItem $outputDir -File | ForEach-Object {
-    $base = ($_.Name -split '-')[0]
-    Normalize-PackageName $base
-} | Sort-Object -Unique
+    if ($_.Name -match '^(.+?)-([0-9][0-9A-Za-z\.\+!]*)(?:-[^-]+)*\.(tar\.gz|zip|whl)$') {
+        Normalize-PackageName $matches[1]
+    }
+} | Where-Object { $_ } | Sort-Object -Unique
 
 $failedPackages = $failedPackages | Where-Object { -not (PackageHasArtifactsInDirectory -Package $_ -ArtifactNames $artifactNames) }
 $retryFailures = $retryFailures | Where-Object { -not (PackageHasArtifactsInDirectory -Package $_ -ArtifactNames $artifactNames) }
