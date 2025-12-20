@@ -205,13 +205,30 @@ $getChildItemParams = @{
     Exclude = $excludedDirectories
 }
 
-if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSBoundParameters.ContainsKey('MaxDepth')) {
+if ($PSVersionTable.PSVersion.Major -ge 7) {
     $getChildItemParams['Depth'] = $MaxDepth
 }
 
 $environmentFiles = foreach ($extension in $extensions) {
     $getChildItemParams['Filter'] = $extension
     Get-ChildItem @getChildItemParams
+}
+$normalizedEnvironmentRoot = $EnvironmentRoot.TrimEnd('\', '/')
+if ($environmentFiles) {
+    $environmentFiles = $environmentFiles | Where-Object {
+        $resolvedPath = $_.FullName
+        if (-not $resolvedPath.StartsWith($normalizedEnvironmentRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+
+        $relativePath = $resolvedPath.Substring($normalizedEnvironmentRoot.Length).TrimStart('\', '/')
+        if (-not $relativePath) {
+            return $true
+        }
+
+        $depth = ($relativePath -split '[\\/]').Count - 1
+        $depth -le $MaxDepth
+    }
 }
 if (-not $environmentFiles) {
     Write-Error "No environment export files (*.json, *.yml, *.yaml) found under $EnvironmentRoot"
