@@ -180,6 +180,15 @@ Use these sample SPL queries to locate events written by
   | table _time, host, EventCode, Message
   ```
 
+- **R client lockdown summary and error events from `r-client-lockdown.ps1` (EventCode 1001 indicates the lockdown failed to write the R profile settings).**
+
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="RClientLockdown" (EventCode=1000 OR EventCode=1001)
+    earliest=-24h latest=now
+  | table _time, host, EventCode, Message
+  ```
+
 - **Clipboard summary for `stata-print-csv.ps1` runs (EventCode 1001 indicates the clipboard copy failed or no packages were found).**
 
   ```spl
@@ -353,6 +362,19 @@ Use PowerShell to retrieve the same `integrity-check.ps1` and
     Get-WinEvent -FilterHashtable @{
         LogName      = 'Application'
         ProviderName = 'RPrintCsvReport'
+        Id           = @(1000,1001)
+        StartTime    = (Get-Date).AddHours(-24)
+    } | Format-List -Property TimeCreated, Id, ProviderName, Message
+  }
+  ```
+
+- **R client lockdown events from `r-client-lockdown.ps1` (shows the paths to the R profile settings or any failures).**
+
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'RClientLockdown'
         Id           = @(1000,1001)
         StartTime    = (Get-Date).AddHours(-24)
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
