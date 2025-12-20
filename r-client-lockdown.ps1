@@ -149,6 +149,35 @@ function Get-RVersionChildPath {
     return $null
 }
 
+function Add-RScriptToSystemPath {
+    param([string]$InstallPath)
+
+    if ([string]::IsNullOrWhiteSpace($InstallPath)) { return $false }
+
+    $rscriptDir = [System.IO.Path]::Combine($InstallPath, 'bin')
+    if (-not (Test-Path -Path $rscriptDir -PathType Container)) { return $false }
+
+    $currentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    if ([string]::IsNullOrWhiteSpace($currentPath)) { $currentPath = '' }
+
+    $normalize = {
+        param([string]$PathEntry)
+        if ([string]::IsNullOrWhiteSpace($PathEntry)) { return $null }
+        return $PathEntry.Trim().TrimEnd('\', '/')
+    }
+
+    $rscriptDirNormalized = & $normalize $rscriptDir
+    $pathEntries = $currentPath -split ';' | ForEach-Object { & $normalize $_ } | Where-Object { $_ }
+
+    $alreadyPresent = $pathEntries | Where-Object { $_ -ieq $rscriptDirNormalized }
+    if ($alreadyPresent) { return $false }
+
+    $updatedEntries = @($pathEntries + $rscriptDirNormalized) | Where-Object { $_ }
+    $updatedPath = ($updatedEntries -join ';')
+    [Environment]::SetEnvironmentVariable('Path', $updatedPath, 'Machine')
+    return $true
+}
+
 Register-RClientLockdownCompleters
 
 try {
@@ -176,7 +205,10 @@ try {
     [System.IO.File]::WriteAllText($rProfilePath, $rProfileContent)
     [System.IO.File]::WriteAllText($rEnvironPath, $rEnvironContent)
 
-    $summary = "R client lockdown wrote $rProfilePath and $rEnvironPath."
+    $rPathUpdated = Add-RScriptToSystemPath -InstallPath $resolvedInstallPath
+    $pathSummary = if ($rPathUpdated) { 'System PATH updated with R bin.' } else { 'System PATH already contained R bin.' }
+
+    $summary = "R client lockdown wrote $rProfilePath and $rEnvironPath. $pathSummary"
     Write-Log $summary 'INFO' -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
 }
 catch {
