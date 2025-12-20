@@ -117,11 +117,15 @@ function Get-PackageFromString {
     $clean = $Entry.Trim()
     if (-not $clean) { return $null }
 
-    $separatorIndex = $clean.IndexOf('==')
+    $separatorIndex = $clean.IndexOf('~=')
     $separatorLength = 2
     if ($separatorIndex -lt 0) {
-        $separatorIndex = $clean.IndexOf('=')
-        $separatorLength = 1
+        $separatorIndex = $clean.IndexOf('==')
+        $separatorLength = 2
+        if ($separatorIndex -lt 0) {
+            $separatorIndex = $clean.IndexOf('=')
+            $separatorLength = 1
+        }
     }
 
     if ($separatorIndex -gt 0) {
