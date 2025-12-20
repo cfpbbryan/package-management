@@ -230,7 +230,6 @@ foreach ($envFile in $environmentFiles) {
     $owner = ($relativePath -split '[\\/]', 2)[0]
     $folderEnvName = $envFile.Directory.Name
     $fileEnvName = if ($envData.Name) { $envData.Name } else { $envFile.BaseName }
-    $owner = $envFile.Directory.Name
     $sanitizedOwner = $owner -replace "\t", ' '
     $sanitizedFolderEnvName = $folderEnvName -replace "\t", ' '
     $sanitizedFileEnvName = $fileEnvName -replace "\t", ' '
