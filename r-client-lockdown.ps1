@@ -26,7 +26,7 @@ param(
                         $_.FullName)
                 }
         })]
-    [string]$RInstallPath = "C:/Program Files/R"
+    [string]$RInstallPath = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,7 +85,10 @@ function Resolve-RInstallPath {
     param([string]$ProvidedPath)
 
     if (-not [string]::IsNullOrWhiteSpace($ProvidedPath)) {
-        return (Resolve-Path -Path $ProvidedPath -ErrorAction Stop).ProviderPath
+        $resolvedPath = (Resolve-Path -Path $ProvidedPath -ErrorAction Stop).ProviderPath
+        $candidatePath = Get-RVersionChildPath -RootPath $resolvedPath
+        if ($candidatePath) { return $candidatePath }
+        return $resolvedPath
     }
 
     if (-not [string]::IsNullOrWhiteSpace($env:R_HOME) -and (Test-Path -Path $env:R_HOME -PathType Container)) {
@@ -124,6 +127,24 @@ function Resolve-RInstallPath {
 
         if ($candidate) { return $candidate.FullName }
     }
+
+    return $null
+}
+
+function Get-RVersionChildPath {
+    param([string]$RootPath)
+
+    if ([string]::IsNullOrWhiteSpace($RootPath)) { return $null }
+
+    $etcPath = Join-Path -Path $RootPath -ChildPath 'etc'
+    if (Test-Path -Path $etcPath -PathType Container) { return $null }
+
+    $candidate = Get-ChildItem -Path $RootPath -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^R-\d' } |
+        Sort-Object -Property Name -Descending |
+        Select-Object -First 1
+
+    if ($candidate) { return $candidate.FullName }
 
     return $null
 }
