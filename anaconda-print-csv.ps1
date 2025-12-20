@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$EnvironmentRoot = 'C:\Users'
+    [string]$EnvironmentRoot = 'C:\Users',
+
+    [Parameter(Mandatory = $false)]
+    [int]$MaxDepth = 6
 )
 
 try {
@@ -190,7 +193,26 @@ function Get-PythonVersion {
     return ''
 }
 
-$environmentFiles = Get-ChildItem -Path $EnvironmentRoot -Recurse -File -Include '*.json','*.yml','*.yaml'
+$extensions = @('*.json', '*.yml', '*.yaml')
+$excludedDirectories = @('AppData', 'node_modules', '.conda', 'Anaconda3\pkgs')
+$getChildItemParams = @{
+    Path = $EnvironmentRoot
+    Recurse = $true
+    File = $true
+    Filter = $null
+    ErrorAction = 'SilentlyContinue'
+    Attributes = '!ReparsePoint'
+    Exclude = $excludedDirectories
+}
+
+if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSBoundParameters.ContainsKey('MaxDepth')) {
+    $getChildItemParams['Depth'] = $MaxDepth
+}
+
+$environmentFiles = foreach ($extension in $extensions) {
+    $getChildItemParams['Filter'] = $extension
+    Get-ChildItem @getChildItemParams
+}
 if (-not $environmentFiles) {
     Write-Error "No environment export files (*.json, *.yml, *.yaml) found under $EnvironmentRoot"
     exit 1
