@@ -202,8 +202,12 @@ foreach ($envFile in $environmentFiles) {
     $resolvedEnvFilePath = (Resolve-Path -LiteralPath $envFile.FullName).ProviderPath
     $relativePath = $resolvedEnvFilePath.Substring($EnvironmentRoot.Length).TrimStart('\', '/')
     $owner = ($relativePath -split '[\\/]', 2)[0]
+    $folderEnvName = $envFile.Directory.Name
+    $fileEnvName = if ($envData.Name) { $envData.Name } else { $envFile.BaseName }
+    $owner = $envFile.Directory.Name
     $sanitizedOwner = $owner -replace "\t", ' '
-    $sanitizedEnv = $envName -replace "\t", ' '
+    $sanitizedFolderEnvName = $folderEnvName -replace "\t", ' '
+    $sanitizedFileEnvName = $fileEnvName -replace "\t", ' '
 
     $dependencies = $envData.Dependencies
     if (-not $dependencies) { continue }
@@ -215,7 +219,7 @@ foreach ($envFile in $environmentFiles) {
         $sanitizedName = $package.Name -replace "\t", ' '
         $sanitizedVersion = $package.Version -replace "\t", ' '
         $sanitizedPython = $pythonVersion -replace "\t", ' '
-        $rows += "$sanitizedOwner`t$sanitizedEnv`t$sanitizedName`t$sanitizedVersion`t$sanitizedPython"
+        $rows += "$sanitizedOwner`t$sanitizedFolderEnvName`t$sanitizedFileEnvName`t$sanitizedName`t$sanitizedVersion`t$sanitizedPython"
     }
 }
 
