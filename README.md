@@ -148,19 +148,46 @@ Use these sample SPL queries to locate events written by
     SourceName="RClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
   ```
 
-- **Alert when the `PipClientLockdownCheck` source shows no successful runs in the past 24 hours (returns a zero-row result you can wire to an email alert).**
+- **Alert when the `RClientLockdownCheck` source shows errors or no events in the past 24 hours.**
 
   ```spl
-  index=windows host="my-mirror-host" source="WinEventLog:Application"
-    SourceName="PipClientLockdownCheck"
-    earliest=-24h latest=now
+  host="my-mirror-host"
+  index=windows
+  source="WinEventLog:Application"
+  sourcetype=WinEventLog
+  SourceName="RClientLockdownCheck"
+  (EventCode=1000 OR EventCode=1001)
+  earliest=-24h
+  latest=now
   | stats
       count as total_events
       sum(eval(EventCode=1000)) as success_events
       sum(eval(EventCode=1001)) as error_events
   | eval
-      ran_ok = if(total_events >= 1 AND success_events >= 1, 1, 0)
-  | where ran_ok=0
+      success_events = coalesce(success_events, 0),
+      error_events   = coalesce(error_events, 0)
+  | where error_events > 0 OR total_events = 0
+  ```
+
+- **Alert when the `PipClientLockdownCheck` source shows errors or no events in the past 24 hours.**
+
+  ```spl
+  host="my-mirror-host"
+  index=windows
+  source="WinEventLog:Application"
+  sourcetype=WinEventLog
+  SourceName="PipClientLockdownCheck"
+  (EventCode=1000 OR EventCode=1001)
+  earliest=-24h
+  latest=now
+  | stats
+      count as total_events
+      sum(eval(EventCode=1000)) as success_events
+      sum(eval(EventCode=1001)) as error_events
+  | eval
+      success_events = coalesce(success_events, 0),
+      error_events   = coalesce(error_events, 0)
+  | where error_events > 0 OR total_events = 0
   ```
 
 - **Cleanup summary events emitted by `pip-cleanup-versions.ps1` when wheel or source distribution files are removed.**
@@ -275,6 +302,20 @@ Use PowerShell to retrieve the same `integrity-check.ps1` and
         StartTime    = (Get-Date).AddHours(-24)
         EndTime      = Get-Date
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
+  }
+  ```
+
+- **Recent R lockdown validation events (simple log listing).**
+
+  ```powershell
+  & {
+    Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'RClientLockdownCheck'
+        Id           = @(1000,1001)
+        StartTime    = (Get-Date).AddHours(-24)
+        EndTime      = Get-Date
+    } | Select-Object TimeCreated, Id, ProviderName, Message
   }
   ```
 
