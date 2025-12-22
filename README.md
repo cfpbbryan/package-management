@@ -134,6 +134,20 @@ Use these sample SPL queries to locate events written by
     SourceName="PipClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
   ```
 
+- **Successful R client lockdown validation events from `r-client-lockdown-check.ps1`.**
+
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="RClientLockdownCheck" EventCode=1000 earliest=-24h latest=now
+  ```
+
+- **R client lockdown validation failures (missing R profile or PATH settings).**
+
+  ```spl
+  index=windows host="my-mirror-host" source="WinEventLog:Application"
+    SourceName="RClientLockdownCheck" EventCode=1001 earliest=-24h latest=now
+  ```
+
 - **Alert when the `PipClientLockdownCheck` source shows no successful runs in the past 24 hours (returns a zero-row result you can wire to an email alert).**
 
   ```spl
@@ -210,27 +224,14 @@ Use these sample SPL queries to locate events written by
 Use PowerShell to retrieve the same `integrity-check.ps1` and
 `pip-client-lockdown-check.ps1` events from your Windows 11 machine without Splunk.
 
-- **Recent informational events from the script source (mirrors the first SPL example).**
+- **Recent informational and error events from the script source (mirrors the first SPL example).**
 
   ```powershell
   & {
     Get-WinEvent -FilterHashtable @{
         LogName   = 'Application'
         ProviderName = 'MirrorIntegrityCheck'
-        Id        = 1000
-        StartTime = (Get-Date).AddDays(-1)
-    } | Format-List -Property TimeCreated, Id, ProviderName, Message
-  }
-  ```
-
-- **Recent error events (similar to the second SPL example).**
-
-  ```powershell
-  & {
-    Get-WinEvent -FilterHashtable @{
-        LogName   = 'Application'
-        ProviderName = 'MirrorIntegrityCheck'
-        Id        = 1001
+        Id        = @(1000,1001)
         StartTime = (Get-Date).AddDays(-1)
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
   }
@@ -249,56 +250,42 @@ Use PowerShell to retrieve the same `integrity-check.ps1` and
   }
   ```
 
-- **Successful pip lockdown validation events from `pip-client-lockdown-check.ps1` (shows enforcement status for the requested interpreter).**
+- **Pip lockdown validation events from `pip-client-lockdown-check.ps1` (success and failure results).**
 
   ```powershell
   & {
     Get-WinEvent -FilterHashtable @{
         LogName      = 'Application'
         ProviderName = 'PipClientLockdownCheck'
-        Id           = 1000
+        Id           = @(1000,1001)
         StartTime    = (Get-Date).AddHours(-24)
         EndTime      = Get-Date
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
   }
   ```
 
-- **Lockdown validation failures from `pip-client-lockdown-check.ps1` (missing find-links or no-index settings).**
+- **R lockdown validation events from `r-client-lockdown-check.ps1` (success and failure results).**
 
   ```powershell
   & {
     Get-WinEvent -FilterHashtable @{
         LogName      = 'Application'
-        ProviderName = 'PipClientLockdownCheck'
-        Id           = 1001
+        ProviderName = 'RClientLockdownCheck'
+        Id           = @(1000,1001)
         StartTime    = (Get-Date).AddHours(-24)
         EndTime      = Get-Date
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
   }
   ```
 
-- **Cleanup summary events recorded by `pip-cleanup-versions.ps1` (highlights how many wheel and source distribution files were deleted).**
-
-  ```powershell
-  & {
-    Get-WinEvent -FilterHashtable @{
-        LogName      = 'Application'
-        ProviderName = 'PipCleanupVersions'
-        Id           = 1000
-        StartTime    = (Get-Date).AddHours(-24)
-        EndTime      = Get-Date
-    } | Format-List -Property TimeCreated, Id, ProviderName, Message
-  }
-  ```
-
-- **Warnings produced by `pip-cleanup-versions.ps1` (the script emits warning events with the same provider name but a different ID).**
+- **Cleanup summary and warning events recorded by `pip-cleanup-versions.ps1`.**
 
   ```powershell
   & {
     Get-WinEvent -FilterHashtable @{
         LogName      = 'Application'
         ProviderName = 'PipCleanupVersions'
-        Id           = 1001
+        Id           = @(1000,1001)
         StartTime    = (Get-Date).AddHours(-24)
         EndTime      = Get-Date
     } | Format-List -Property TimeCreated, Id, ProviderName, Message
