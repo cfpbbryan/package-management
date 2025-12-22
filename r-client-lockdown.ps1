@@ -201,6 +201,11 @@ function Write-ConfigFile {
         [switch]$Append
     )
 
+    $backupPath = $null
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        $backupPath = Backup-ConfigFile -Path $Path
+    }
+
     if ($Append) {
         if (Test-Path -LiteralPath $Path -PathType Leaf) {
             [System.IO.File]::AppendAllText($Path, "`r`n$Content")
@@ -212,6 +217,8 @@ function Write-ConfigFile {
     else {
         [System.IO.File]::WriteAllText($Path, $Content)
     }
+
+    return $backupPath
 }
 
 Register-RClientLockdownCompleters
@@ -238,11 +245,8 @@ try {
     $rProfileContent = 'options(repos = c(CRAN = "file:///c:/admin/r_mirror"), pkgType = "binary")'
     $rEnvironContent = 'R_REPOS_OVERRIDE=1'
 
-    $rProfileBackup = Backup-ConfigFile -Path $rProfilePath
-    $rEnvironBackup = Backup-ConfigFile -Path $rEnvironPath
-
-    Write-ConfigFile -Path $rProfilePath -Content $rProfileContent -Append:$Append
-    Write-ConfigFile -Path $rEnvironPath -Content $rEnvironContent -Append:$Append
+    $rProfileBackup = Write-ConfigFile -Path $rProfilePath -Content $rProfileContent -Append:$Append
+    $rEnvironBackup = Write-ConfigFile -Path $rEnvironPath -Content $rEnvironContent -Append:$Append
 
     $rPathUpdated = Add-RScriptToSystemPath -InstallPath $resolvedInstallPath
     $pathSummary = if ($rPathUpdated) { 'System PATH updated with R bin.' } else { 'System PATH already contained R bin.' }
