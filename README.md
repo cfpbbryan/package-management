@@ -15,7 +15,7 @@ Ask someone from Office of Research or Bryan Harris where that's at.
 | logging-utils.psm1                | Shared PowerShell logging utilities used by other scripts             |
 | integrity-check.ps1               | Generates and validates integrity metadata for a local package mirror |
 | pip-client-lockdown.ps1           | Enforces pip client configuration and restrictions                    |
-| lockdown-check.ps1                | Verifies pip client lockdown settings and event log reporting         |
+| pip-client-lockdown-check.ps1     | Verifies pip client lockdown settings and event log reporting         |
 | pip-download-packages.ps1         | Downloads Python packages into a controlled mirror                    |
 | pip-install-build-tools.ps1       | Installs Python build dependencies required for packaging             |
 | pip-print-csv.ps1                 | Exports installed Python package metadata to CSV                      |
@@ -40,8 +40,8 @@ Legacy and experimental scripts live under the `archive/` directory; see `archiv
 | --- | --- |
 | `.\integrity-check.ps1 -Mode baseline -MirrorRoot "C:\admin\pip_mirror"` | Create a baseline integrity manifest for a mirror. |
 | `.\integrity-check.ps1 -Mode verify -MirrorRoot "C:\admin\pip_mirror"` | Verify a mirror against a previously captured baseline. |
-| `.\lockdown-check.ps1` | Validate the default pip lockdown configuration. |
-| `.\lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"` | Validate lockdown settings for a specific Python interpreter. |
+| `.\pip-client-lockdown-check.ps1` | Validate the default pip lockdown configuration. |
+| `.\pip-client-lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"` | Validate lockdown settings for a specific Python interpreter. |
 
 ## Usage examples
 
@@ -67,7 +67,7 @@ Validate that pip is locked down to the default mirror settings applied by `pip-
 
 ```powershell
 & {
-  .\lockdown-check.ps1
+  .\pip-client-lockdown-check.ps1
 }
 ```
 
@@ -75,7 +75,7 @@ Validate pip lockdown using an explicit Python interpreter.
 
 ```powershell
 & {
-  .\lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"
+  .\pip-client-lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"
 }
 ```
 
@@ -110,7 +110,7 @@ Use these sample SPL queries to locate events written by
   | stats count BY EventCode, Message
   ```
 
-- **Successful pip lockdown validation events from `lockdown-check.ps1`.**
+- **Successful pip lockdown validation events from `pip-client-lockdown-check.ps1`.**
 
   ```spl
   index=windows host="my-mirror-host" source="WinEventLog:Application"
@@ -198,7 +198,7 @@ Use these sample SPL queries to locate events written by
 ## Local Windows event log search examples
 
 Use PowerShell to retrieve the same `integrity-check.ps1` and
-`lockdown-check.ps1` events from your Windows 11 machine without Splunk.
+`pip-client-lockdown-check.ps1` events from your Windows 11 machine without Splunk.
 
 - **Recent informational events from the script source (mirrors the first SPL example).**
 
@@ -239,7 +239,7 @@ Use PowerShell to retrieve the same `integrity-check.ps1` and
   }
   ```
 
-- **Successful pip lockdown validation events from `lockdown-check.ps1` (shows enforcement status for the requested interpreter).**
+- **Successful pip lockdown validation events from `pip-client-lockdown-check.ps1` (shows enforcement status for the requested interpreter).**
 
   ```powershell
   & {
@@ -253,7 +253,7 @@ Use PowerShell to retrieve the same `integrity-check.ps1` and
   }
   ```
 
-- **Lockdown validation failures from `lockdown-check.ps1` (missing find-links or no-index settings).**
+- **Lockdown validation failures from `pip-client-lockdown-check.ps1` (missing find-links or no-index settings).**
 
   ```powershell
   & {
