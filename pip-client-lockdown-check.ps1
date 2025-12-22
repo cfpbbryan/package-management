@@ -12,7 +12,7 @@
 
 .EXAMPLE
     # Validate pip lockdown
-    .\lockdown-check.ps1
+    .\pip-client-lockdown-check.ps1
 #>
 
 [CmdletBinding()]
