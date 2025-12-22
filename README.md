@@ -19,6 +19,7 @@ Ask someone from Office of Research or Bryan Harris where that's at.
 | pip-download-packages.ps1         | Downloads Python packages into a controlled mirror                    |
 | pip-install-build-tools.ps1       | Installs Python build dependencies required for packaging             |
 | pip-print-csv.ps1                 | Exports installed Python package metadata to CSV                      |
+| r-client-lockdown-check.ps1       | Verifies R client lockdown settings and event log reporting           |
 | r-build-mirror.R                  | Builds a local mirror of R packages                                   |
 | r-install-baseline.R              | Installs a baseline set of approved R packages                        |
 | r-print-csv.R                     | Exports installed R package metadata to CSV                           |
@@ -42,6 +43,7 @@ Legacy and experimental scripts live under the `archive/` directory; see `archiv
 | `.\integrity-check.ps1 -Mode verify -MirrorRoot "C:\admin\pip_mirror"` | Verify a mirror against a previously captured baseline. |
 | `.\pip-client-lockdown-check.ps1` | Validate the default pip lockdown configuration. |
 | `.\pip-client-lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"` | Validate lockdown settings for a specific Python interpreter. |
+| `.\r-client-lockdown-check.ps1` | Validate the default R lockdown configuration. |
 
 ## Usage examples
 
@@ -76,6 +78,14 @@ Validate pip lockdown using an explicit Python interpreter.
 ```powershell
 & {
   .\pip-client-lockdown-check.ps1 -PythonLauncher "C:\Python311\python.exe"
+}
+```
+
+Validate that R is locked down to the default mirror settings applied by `r-client-lockdown.ps1`.
+
+```powershell
+& {
+  .\r-client-lockdown-check.ps1
 }
 ```
 
