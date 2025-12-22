@@ -164,13 +164,16 @@ function Add-RScriptToSystemPath {
     $normalize = {
         param([string]$PathEntry)
         if ([string]::IsNullOrWhiteSpace($PathEntry)) { return $null }
-        return $PathEntry.Trim().TrimEnd('\', '/')
+        $trimmed = $PathEntry.Trim().TrimEnd('\', '/')
+        if ([string]::IsNullOrWhiteSpace($trimmed)) { return $null }
+        return ($trimmed -replace '/', '\')
     }
 
     $rscriptDirNormalized = & $normalize $rscriptDir
-    $pathEntries = $currentPath -split ';' | ForEach-Object { & $normalize $_ } | Where-Object { $_ }
+    $pathEntries = $currentPath -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    $normalizedEntries = $pathEntries | ForEach-Object { & $normalize $_ } | Where-Object { $_ }
 
-    $alreadyPresent = $pathEntries | Where-Object { $_ -ieq $rscriptDirNormalized }
+    $alreadyPresent = $normalizedEntries | Where-Object { $_ -ieq $rscriptDirNormalized }
     if ($alreadyPresent) { return $false }
 
     $updatedEntries = @($pathEntries + $rscriptDirNormalized) | Where-Object { $_ }
