@@ -26,7 +26,8 @@ param(
                         $_.FullName)
                 }
         })]
-    [string]$RInstallPath = ""
+    [string]$RInstallPath = "",
+    [switch]$Append
 )
 
 $ErrorActionPreference = 'Stop'
@@ -178,6 +179,38 @@ function Add-RScriptToSystemPath {
     return $true
 }
 
+function Backup-ConfigFile {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+
+    $dateStamp = Get-Date -Format 'yyyyMMdd'
+    $backupPath = "$Path.pre$dateStamp"
+    Copy-Item -LiteralPath $Path -Destination $backupPath -Force
+    return $backupPath
+}
+
+function Write-ConfigFile {
+    param(
+        [string]$Path,
+        [string]$Content,
+        [switch]$Append
+    )
+
+    if ($Append) {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            [System.IO.File]::AppendAllText($Path, "`r`n$Content")
+        }
+        else {
+            [System.IO.File]::WriteAllText($Path, $Content)
+        }
+    }
+    else {
+        [System.IO.File]::WriteAllText($Path, $Content)
+    }
+}
+
 Register-RClientLockdownCompleters
 
 try {
@@ -202,13 +235,20 @@ try {
     $rProfileContent = 'options(repos = c(CRAN = "file:///c:/admin/r_mirror"), pkgType = "binary")'
     $rEnvironContent = 'R_REPOS_OVERRIDE=1'
 
-    [System.IO.File]::WriteAllText($rProfilePath, $rProfileContent)
-    [System.IO.File]::WriteAllText($rEnvironPath, $rEnvironContent)
+    $rProfileBackup = Backup-ConfigFile -Path $rProfilePath
+    $rEnvironBackup = Backup-ConfigFile -Path $rEnvironPath
+
+    Write-ConfigFile -Path $rProfilePath -Content $rProfileContent -Append:$Append
+    Write-ConfigFile -Path $rEnvironPath -Content $rEnvironContent -Append:$Append
 
     $rPathUpdated = Add-RScriptToSystemPath -InstallPath $resolvedInstallPath
     $pathSummary = if ($rPathUpdated) { 'System PATH updated with R bin.' } else { 'System PATH already contained R bin.' }
 
-    $summary = "R client lockdown wrote $rProfilePath and $rEnvironPath. $pathSummary"
+    $backupSummary = @($rProfileBackup, $rEnvironBackup) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        ForEach-Object { "Backup created: $_." }
+
+    $summary = "R client lockdown wrote $rProfilePath and $rEnvironPath. $($backupSummary -join ' ') $pathSummary"
     Write-Log $summary 'INFO' -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
 }
 catch {
