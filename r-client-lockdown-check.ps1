@@ -60,6 +60,18 @@ $eventLogConfig = @{
     }
     SkipSourceCreationErrors = $true
 }
+$eventLogEnabled = $Log.IsPresent
+
+function Write-EventLogIfEnabled {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('Information', 'Warning', 'Error')][string]$EntryType = 'Information'
+    )
+
+    if (-not $eventLogEnabled) { return }
+
+    Write-EventLogRecord @eventLogConfig -Message $Message -EntryType $EntryType
+}
 
 function Register-RClientLockdownCheckCompleters {
     param([string]$ScriptPath = $PSCommandPath)
@@ -112,11 +124,12 @@ function Write-OutcomeEvent {
         [bool]$Success
     )
 
-    if (-not $Log) { return }
-
-    $level = if ($Success) { 'INFO' } else { 'ERROR' }
-
-    Write-Log $Message $level -ToEventLog -LogName $eventLogConfig.LogName -EventSource $eventLogConfig.EventSource -EventIds $eventLogConfig.EventIds -SkipSourceCreationErrors:$eventLogConfig.SkipSourceCreationErrors
+    if ($Success) {
+        Write-EventLogIfEnabled -Message $Message -EntryType 'Information'
+    }
+    else {
+        Write-EventLogIfEnabled -Message $Message -EntryType 'Error'
+    }
 }
 
 function Convert-ToForwardSlashPath {
