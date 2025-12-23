@@ -64,19 +64,7 @@ mirror_packages <- function(requirements_path, destination) {
     dir.create(mirror_dir, recursive = TRUE, showWarnings = FALSE)
   }
 
-  available <- available.packages()
-  deps <- tools::package_dependencies(
-    packages,
-    db = available,
-    recursive = TRUE
-  )
-  all_pkgs <- unique(c(packages, unlist(deps)))
-
-  download.packages(
-    pkgs = all_pkgs,
-    destdir = mirror_dir,
-    type = "win.binary"
-  )
+  download.packages(pkgs = packages, destdir = mirror_dir, type = "win.binary")
   tools::write_PACKAGES(dir = mirror_dir, type = "win.binary")
 }
 
