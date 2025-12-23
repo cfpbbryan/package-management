@@ -43,8 +43,7 @@ param(
                         $_.FullName)
                 }
         })]
-    [string]$RInstallPath = "",
-    [switch]$Log
+    [string]$RInstallPath = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -60,19 +59,6 @@ $eventLogConfig = @{
     }
     SkipSourceCreationErrors = $true
 }
-$eventLogEnabled = $Log.IsPresent
-
-function Write-EventLogIfEnabled {
-    param(
-        [Parameter(Mandatory = $true)][string]$Message,
-        [ValidateSet('Information', 'Warning', 'Error')][string]$EntryType = 'Information'
-    )
-
-    if (-not $eventLogEnabled) { return }
-
-    Write-EventLogRecord @eventLogConfig -Message $Message -EntryType $EntryType
-}
-
 function Register-RClientLockdownCheckCompleters {
     param([string]$ScriptPath = $PSCommandPath)
 
@@ -125,10 +111,10 @@ function Write-OutcomeEvent {
     )
 
     if ($Success) {
-        Write-EventLogIfEnabled -Message $Message -EntryType 'Information'
+        Write-EventLogRecord @eventLogConfig -Message $Message -EntryType 'Information'
     }
     else {
-        Write-EventLogIfEnabled -Message $Message -EntryType 'Error'
+        Write-EventLogRecord @eventLogConfig -Message $Message -EntryType 'Error'
     }
 }
 
