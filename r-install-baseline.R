@@ -105,7 +105,7 @@ install_baseline <- function(requirements_path, mirror_path) {
     repos = repo,
     type = "win.binary",
     lib = library_path,
-    dependencies = FALSE
+    dependencies = TRUE
   )
 }
 
