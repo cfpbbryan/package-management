@@ -199,13 +199,6 @@ load_integrity_manifest <- function(base_path) {
 
 print_report <- function(requirements_path, mirror_path) {
   ensure_windows()
-  packages <- read_requirements(requirements_path)
-
-  if (!length(packages)) {
-    message(sprintf("No packages listed in %s; nothing to report.", requirements_path))
-    return(invisible(NULL))
-  }
-
   mirror <- mirror_dir(mirror_path)
 
   if (!dir.exists(mirror)) {
@@ -218,13 +211,9 @@ print_report <- function(requirements_path, mirror_path) {
   }
 
   metadata <- load_package_metadata(mirror)
+  matching <- metadata
+  packages <- matching$Package
   cran_metadata <- load_cran_metadata(packages)
-  matching <- metadata[metadata$Package %in% packages, , drop = FALSE]
-  missing <- setdiff(packages, matching$Package)
-
-  if (length(missing)) {
-    warning(sprintf("Missing %d package(s) in mirror: %s", length(missing), paste(missing, collapse = ", ")))
-  }
 
   integrity_hashes <- load_integrity_manifest(mirror_path)
 
