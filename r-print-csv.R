@@ -219,10 +219,6 @@ print_report <- function(requirements_path, mirror_path) {
 
   metadata <- load_package_metadata(mirror)
   cran_metadata <- load_cran_metadata(packages)
-  installed <- as.data.frame(
-    installed.packages(lib.loc = primary_library(), fields = c("Package", "LibPath")),
-    stringsAsFactors = FALSE
-  )
   matching <- metadata[metadata$Package %in% packages, , drop = FALSE]
   missing <- setdiff(packages, matching$Package)
 
@@ -250,14 +246,13 @@ print_report <- function(requirements_path, mirror_path) {
         fetch_cran_summary(name)
       )
     )
-    install_base <- installed$LibPath[installed$Package == name]
-    location <- if (length(install_base)) {
-      normalizePath(file.path(install_base[[1]], name), winslash = "\\", mustWork = FALSE)
-    } else {
-      mirror
-    }
-
     archive_name <- sprintf("%s_%s.zip", name, version)
+    archive_path <- file.path(mirror, archive_name)
+    location <- if (file.exists(archive_path)) {
+      normalizePath(archive_path, winslash = "\\", mustWork = FALSE)
+    } else {
+      normalizePath(file.path(mirror, name), winslash = "\\", mustWork = FALSE)
+    }
     hash <- if (length(integrity_hashes) && archive_name %in% names(integrity_hashes)) {
       integrity_hashes[[archive_name]]
     } else {
@@ -269,4 +264,3 @@ print_report <- function(requirements_path, mirror_path) {
 }
 
 print_report(default_requirements, default_mirror)
-
