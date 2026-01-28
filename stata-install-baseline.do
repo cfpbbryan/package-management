@@ -74,7 +74,15 @@ forvalues i = 1/`=_N' {
     cap mkdir "`shared_root'\\`first'"
 
     display as text "[`i'/`=_N'] Installing `p' from `src' into `shared_root'\\`first'"
-    quietly cap net install `p', from(`"`src'"') replace
+
+    // Use ssc install for SSC packages (Boston College RePEc archive), net install otherwise.
+    if (strpos("`src'", "fmwww.bc.edu/RePEc/bocode") > 0) {
+        display as text "    (using ssc install)"
+        quietly cap ssc install `p', replace
+    }
+    else {
+        quietly cap net install `p', from(`"`src'"') replace
+    }
     local rc = _rc
 
     if (`rc') {
